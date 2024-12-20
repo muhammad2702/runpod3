@@ -40,30 +40,7 @@ metrics_dict = {
 API_KEY = 'de_kgSuhw6v4KnRK0wprJCoBAIhqSd5R'  # Replace with your actual API key
 BASE_URL = 'https://api.polygon.io/v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from_date}/{to_date}'
 
-# List of cryptocurrencies (tickers) you want to collect data for
-TICKERS = [
-    'X:AAVEUSD',
-    'X:AVAXUSD',
-    'X:BATUSD',
-    'X:LINKUSD',
-    'X:UNIUSD',
-    'X:SUSHIUSD',
-    'X:PNGUSD',
-    'X:JOEUSD',
-    'X:XAVAUSD',
-    'X:ATOMUSD',
-    'X:ALGOUSD',
-    'X:ARBUSD',
-    'X:1INCHUSD',
-    'X:DAIUSD',
-    # Add more tickers as needed
-]
-
-# Timeframes you want to collect data for
-TIMEFRAMES = [
-    {'multiplier': 1, 'timespan': 'second'},
-]
-
+# Data directories
 DATA_DIR = 'crypto_data'
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -73,7 +50,6 @@ PREDICTIONS_DIR = 'predictions'
 os.makedirs(MODELS_DIR, exist_ok=True)
 os.makedirs(SCALERS_DIR, exist_ok=True)
 os.makedirs(PREDICTIONS_DIR, exist_ok=True)
-
 
 
 def fetch_data(ticker, multiplier, timespan, from_date, to_date):
@@ -101,7 +77,8 @@ def fetch_data(ticker, multiplier, timespan, from_date, to_date):
         logging.error(f"Other error occurred for {ticker} - {timespan}: {err}")
     return []
 
-def collect(START_DATE, END_DATE):
+
+def collect(START_DATE, END_DATE, TICKERS, TIMEFRAMES):
     start = datetime.strptime(START_DATE, '%Y-%m-%d')
     end = datetime.strptime(END_DATE, '%Y-%m-%d')
 
@@ -127,6 +104,7 @@ def collect(START_DATE, END_DATE):
                 logging.warning(f"No data fetched for {ticker} - {multiplier}{timespan}")
 
             time.sleep(1)
+
 
 class CryptoDataPreprocessor:
     def __init__(self, raw_data_dir='crypto_data', preprocessed_data_dir='preprocessed_data', columns_to_add=None):
@@ -213,6 +191,7 @@ class CryptoDataPreprocessor:
                     self.save_preprocessed_data(df_preprocessed, preprocessed_filepath)
                     logging.info(f"Saved preprocessed file to {preprocessed_filepath}")
 
+
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=5000):
         super(PositionalEncoding, self).__init__()
@@ -229,6 +208,7 @@ class PositionalEncoding(nn.Module):
         seq_length = x.size(1)
         x = x + self.pe[:, :seq_length, :]
         return x
+
 
 class LiteFormer(nn.Module):
     def __init__(self, d_model=128, nhead=8, num_encoder_layers=4, dim_feedforward=512, dropout=0.1, max_seq_length=80):
@@ -264,6 +244,7 @@ class LiteFormer(nn.Module):
         out = self.output_layer(memory)
         return out
 
+
 class CryptoDataset(Dataset):
     def __init__(self, dataframe, window_size=80):
         self.data = dataframe.sort_values('t').reset_index(drop=True)
@@ -279,6 +260,7 @@ class CryptoDataset(Dataset):
         target_idx = idx + self.window_size
         target = self.data.iloc[target_idx]['close_price']
         return torch.tensor(features, dtype=torch.float32), torch.tensor(target, dtype=torch.float32)
+
 
 def train(model, dataloader, criterion, optimizer, scheduler, scaler, device, accumulation_steps=2):
     model.train()
@@ -314,6 +296,7 @@ def train(model, dataloader, criterion, optimizer, scheduler, scaler, device, ac
     epoch_loss /= total if total > 0 else 1
     return epoch_loss
 
+
 def validate(model, dataloader, criterion, device):
     model.eval()
     val_loss = 0.0
@@ -340,6 +323,7 @@ def validate(model, dataloader, criterion, device):
     rmse = math.sqrt(mean_squared_error(all_targets, all_preds)) if len(all_targets)>0 else 0
     return val_loss, mae, rmse
 
+
 def plot_losses(train_losses, val_losses, save_path='loss_curve.png'):
     epochs = range(1, len(train_losses) + 1)
     plt.figure(figsize=(10, 6))
@@ -353,10 +337,10 @@ def plot_losses(train_losses, val_losses, save_path='loss_curve.png'):
     plt.close()
     logging.info(f"Loss curve saved to {save_path}")
 
-def main(crypto_metrics):
+
+def main(crypto_metrics, epochs):
     # Train a separate model for each crypto individually
     batch_size = 48
-    epochs = 2
     learning_rate = 5e-4
     window_size = 80
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -505,6 +489,7 @@ def main(crypto_metrics):
 
         del model
         torch.cuda.empty_cache()
+
 
 def preprocess_and_predict(crypto_metrics):
    
@@ -670,8 +655,6 @@ def preprocess_and_predict(crypto_metrics):
     return {"status": "success", "message": "Predictions completed."}
 
 
-
-
 def upload_to_oshi(file_path):
     try:
         with open(file_path, 'rb') as file:
@@ -686,7 +669,6 @@ def upload_to_oshi(file_path):
         return None
 
 
-
 def handler(job):
     job_input = job.get("input", {})
     
@@ -696,7 +678,30 @@ def handler(job):
     END_DATE1 = job_input.get("END_DATE1", "")
     print(f"END_DATE1 :  {END_DATE1}")
 
-    collect(START_DATE1, END_DATE1)
+    # Retrieve TICKERS and TIMEFRAMES from input
+    TICKERS = job_input.get("TICKERS", [
+        'X:AAVEUSD',
+        'X:AVAXUSD',
+        'X:BATUSD',
+        'X:LINKUSD',
+        'X:UNIUSD',
+        'X:SUSHIUSD',
+        'X:PNGUSD',
+        'X:JOEUSD',
+        'X:XAVAUSD',
+        'X:ATOMUSD',
+        'X:ALGOUSD',
+        'X:ARBUSD',
+        'X:1INCHUSD',
+        'X:DAIUSD',
+        # Add more tickers as needed
+    ])
+    TIMEFRAMES = job_input.get("TIMEFRAMES", [
+        {'multiplier': 1, 'timespan': 'second'},
+    ])
+    epochs = job_input.get("epochs", 2)  # Default to 2 epochs if not provided
+
+    collect(START_DATE1, END_DATE1, TICKERS, TIMEFRAMES)
     # Uncomment if you want to run these steps
     preprocess = CryptoDataPreprocessor(
          raw_data_dir='crypto_data',
@@ -706,14 +711,14 @@ def handler(job):
     preprocess.preprocess_all_files()
 
     crypto_metrics = {}
-    main(crypto_metrics)
+    main(crypto_metrics, epochs)
 
     START_DATE2 = job_input.get("START_DATE2", "")
     print(f"START_DATE2 :  {START_DATE2}")
     END_DATE2 = job_input.get("END_DATE2", "")
     print(f"END_DATE2 :  {END_DATE2}")
 
-    collect(START_DATE2, END_DATE2)
+    collect(START_DATE2, END_DATE2, TICKERS, TIMEFRAMES)
     preprocess = CryptoDataPreprocessor(
         raw_data_dir='crypto_data',
         preprocessed_data_dir='preprocessed_data',
@@ -747,12 +752,13 @@ def handler(job):
         
     metrics_dict["download_link"] = download_link
 
-    
+
     metrics_dict["status"] = "success"
     metrics_dict["message"] = "Processing completed successfully."
     metrics_dict["details"] = crypto_metrics
     
     return json.dumps(metrics_dict)
+
 
 def set_seed(seed=42):
     random.seed(seed)
@@ -761,6 +767,7 @@ def set_seed(seed=42):
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
 
 set_seed(42)
 
