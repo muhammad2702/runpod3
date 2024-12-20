@@ -1,0 +1,12 @@
+runpod
+requests
+pandas
+numpy
+matplotlib
+torch
+scikit-learn
+ta
+tqdm
+pickle-mixin  # For pickle functionality
+joblib
+backtesting
