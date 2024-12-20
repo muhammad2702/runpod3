@@ -679,23 +679,9 @@ def handler(job):
     print(f"END_DATE1 :  {END_DATE1}")
 
     # Retrieve TICKERS and TIMEFRAMES from input
-    TICKERS = job_input.get("TICKERS", [
-        'X:AAVEUSD',
-        'X:AVAXUSD',
-        'X:BATUSD',
-        'X:LINKUSD',
-        'X:UNIUSD',
-        'X:SUSHIUSD',
-        'X:PNGUSD',
-        'X:JOEUSD',
-        'X:XAVAUSD',
-        'X:ATOMUSD',
-        'X:ALGOUSD',
-        'X:ARBUSD',
-        'X:1INCHUSD',
-        'X:DAIUSD',
-        # Add more tickers as needed
-    ])
+    TICKERS = job_input.get("TICKERS")
+    print("TICKERS")
+    print(TICKERS)
     TIMEFRAMES = job_input.get("TIMEFRAMES", [
         {'multiplier': 1, 'timespan': 'second'},
     ])
